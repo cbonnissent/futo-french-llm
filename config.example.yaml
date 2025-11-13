@@ -1,0 +1,142 @@
+# Configuration d'exemple pour l'entraînement FUTO French LLM
+# Copiez ce fichier en config.yaml et adaptez selon vos besoins
+
+# Chemins
+paths:
+  data_dir: "./data/raw"
+  tokenizer_dir: "./tokenizer"
+  output_dir: "./output"
+  corpus_file: "./data/raw/french_corpus_merged.txt"
+
+# Tokenizer
+tokenizer:
+  vocab_size: 15008
+  character_coverage: 0.9995
+  model_prefix: "french_keyboard"
+
+# Modèle
+model:
+  # Choix: "default" (36M) ou "large" (100M)
+  size: "default"
+
+  # Config default (36M paramètres)
+  default:
+    hidden_size: 512
+    intermediate_size: 1024
+    num_hidden_layers: 8
+    num_attention_heads: 8
+    max_position_embeddings: 2048
+
+  # Config large (100M paramètres) - meilleure qualité, plus lent
+  large:
+    hidden_size: 768
+    intermediate_size: 2048
+    num_hidden_layers: 12
+    num_attention_heads: 12
+    max_position_embeddings: 2048
+
+# Préentraînement
+pretrain:
+  epochs: 3
+  batch_size: 64  # Ajuster selon votre GPU
+  learning_rate: 5e-4
+  max_length: 512
+  gradient_accumulation_steps: 2
+  warmup_steps: 1000
+  save_steps: 5000
+  eval_steps: 1000
+  logging_steps: 100
+
+  # Optimisations GPU
+  bf16: true  # B200 supporte bf16
+  fp16: false
+  gradient_checkpointing: true
+
+# Finetuning
+finetune:
+  # Phase 1: Corrections individuelles
+  phase1:
+    epochs: 3
+    batch_size: 32
+    learning_rate: 1e-4
+    max_length: 128
+    num_examples_per_word: 3
+    max_words: 50000
+
+  # Phase 2: Corrections en contexte
+  phase2:
+    epochs: 3
+    batch_size: 16
+    learning_rate: 5e-5
+    max_length: 512
+    error_prob: 0.33  # 33% des mots avec fautes
+    max_samples: 100000
+
+  # Phase 3: Langage informel (optionnel)
+  phase3:
+    epochs: 2
+    batch_size: 16
+    learning_rate: 3e-5
+    max_length: 512
+    informal_corpus: "./data/raw/informal_french.txt"  # À fournir
+
+# Générateur de fautes AZERTY
+error_generator:
+  error_rate: 0.15
+
+  # Probabilités des types d'erreurs
+  error_types:
+    adjacent_key: 0.35
+    missing_char: 0.15
+    double_char: 0.10
+    transpose: 0.15
+    accent: 0.25
+
+# Évaluation
+evaluation:
+  test_data: "./evaluation/test_data_example.json"
+  batch_size: 64
+
+  # Métriques à calculer
+  metrics:
+    - perplexity
+    - autocorrect_accuracy
+    - next_word_top1
+    - next_word_top5
+
+# Export GGUF
+export:
+  output_file: "./output/french_keyboard.gguf"
+  quantization: "f16"  # Choix: f32, f16, q8_0, q4_0
+
+  # Métadonnées FUTO
+  metadata:
+    language: "fr"
+    features:
+      - "base_v1"
+      - "inverted_space"
+      - "xbu_char_autocorrect_v1"
+    finetuning_count: 0
+
+# Téléchargement de données
+data_download:
+  sources:
+    - wikipedia  # Wikipedia français
+    - oscar      # OSCAR corpus
+    - mc4        # mC4 (Common Crawl)
+
+  max_samples_per_source: 100000  # null pour tout télécharger
+  merge: true
+
+# Logging et monitoring
+logging:
+  use_wandb: false  # Activer pour tracking avec W&B
+  wandb_project: "futo-french-llm"
+  wandb_entity: null
+  log_level: "INFO"
+
+# Hardware
+hardware:
+  num_workers: 8  # Processus pour chargement données
+  pin_memory: true
+  device: "cuda"  # cuda ou cpu
