@@ -28,6 +28,7 @@ data/raw/*
 data/processed/*
 data/synthetic/*
 *.txt
+!requirements*.txt
 *.jsonl
 *.csv
 *.tsv
